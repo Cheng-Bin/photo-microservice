@@ -1,3 +1,9 @@
+/**
+*
+* 这个微服务主要是为了配置而构建
+*
+**/
+
 package main
 
 import (
@@ -97,6 +103,7 @@ func remove(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//
 func list(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		kvStoreMutex.RLock()
