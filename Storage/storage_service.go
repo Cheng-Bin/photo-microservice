@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 )
 
@@ -19,8 +20,8 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/sendImg", serImg)
-	http.HandleFunc("/getImg", sevImg)
+	http.HandleFunc("/sendImg", receiveImage)
+	http.HandleFunc("/getImg", serveImage)
 	http.ListenAndServe(":3002", nil)
 }
 
@@ -54,10 +55,31 @@ func registerInKVStore() bool {
 	return true
 }
 
-func serImg(w http.ResponseWriter, r *http.Request) {
+func serveImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		values, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: ", err)
+			return
+		}
+		if len(values.Get("id")) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error: ", "Wrong input id.")
+			return
+		}
+		if values.Get("state") != "working" && values.Get("state") != "finished" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Error:", "Wrong input state.")
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Error: Only POST accepted")
+	}
 
 }
 
-func sevImg(w http.ResponseWriter, r *http.Request) {
+func receiveImage(w http.ResponseWriter, r *http.Request) {
 
 }
