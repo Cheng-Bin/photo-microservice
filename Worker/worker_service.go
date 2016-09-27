@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
+	"image/color"
+	"image/png"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -124,21 +129,79 @@ func main() {
 }
 
 func getNewTask(masterAddress string) (Task, error) {
+	response, err := http.Post("http://"+masterAddress+"/getNewTask", "text/plain", nil)
+	if err != nil || response.StatusCode != http.StatusOK {
+		return Task{-1, -1}, err
+	}
 
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return Task{-1, -1}, err
+	}
+
+	myTask := Task{}
+	err = json.Unmarshal(data, &myTask)
+	if err != nil {
+		return Task{-1, -1}, err
+	}
+
+	return myTask, nil
 }
 
 func getImageFromStorge(storageAddress string, myTask Task) (image.Image, error) {
+	response, err := http.Get("http://" + storageAddress + "/getImage?state=working&id=" + strconv.Itoa(myTask.ID))
+	if err != nil && response.StatusCode != http.StatusOK {
+		return nil, err
+	}
 
+	myImage, err := png.Decode(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return myImage, nil
 }
 
 func doWorkOnImage(myImage image.Image) (image.Image, error) {
+	if myImage != nil {
+		myCanvas := image.NewRGBA(myImage.Bounds())
 
+		for i := 0; i < myCanvas.Rect.Max.X; i++ {
+			for j := 0; j < myCanvas.Rect.Max.Y; j++ {
+				r, g, b, _ := myImage.At(i, j).RGBA()
+				myColor := new(color.RGBA)
+				myColor.R = uint8(g)
+				myColor.G = uint8(r)
+				myColor.B = uint8(b)
+				myColor.A = uint8(255)
+				myCanvas.Set(i, j, myColor)
+			}
+		}
+
+		return myCanvas.SubImage(myImage.Bounds()), nil
+	}
+
+	return myImage, errors.New("Image can't be nil.")
 }
 
 func sendImageToStorage(storageAddress string, myTash Task, myImage image.Image) error {
-
+	data := []byte{}
+	buffer := bytes.NewBuffer(data)
+	err := png.Encode(buffer, myImage)
+	if err != nil {
+		return err
+	}
+	response, err := http.Post("http://"+storageAddress+"/sendImage?state=finished&id="+strconv.Itoa(myTash.ID), "image/png", buffer)
+	if err != nil || response.StatusCode != http.StatusOK {
+		return err
+	}
+	return nil
 }
 
 func registerFinishedTask(masterAddress string, myTask Task) error {
-
+	response, err := http.Post("http://"+masterAddress+"/registerTaskFinished?id="+strconv.Itoa(myTask.ID), "text/plain", nil)
+	if err != nil || response.StatusCode != http.StatusOK {
+		return err
+	}
+	return nil
 }
